@@ -88,7 +88,7 @@ Take a look at the [upgrade guide](UPGRADING.md) for more details.
 - JWT::Token and JWT::EncodedToken for signing and verifying tokens [#621](https://github.com/jwt/ruby-jwt/pull/621) ([@anakinj](https://github.com/anakinj))
 - Detached payload support for JWT::Token and JWT::EncodedToken [#630](https://github.com/jwt/ruby-jwt/pull/630) ([@anakinj](https://github.com/anakinj))
 - Skip decoding payload if b64 header is present and false [#631](https://github.com/jwt/ruby-jwt/pull/631) ([@anakinj](https://github.com/anakinj))
-- Remove a few custom Rubocop configs [#638](https://github.com/jwt/ruby-jwt/pull/638) ([@anakinj](https://github.com/anakinj))
+- Remove a few custom RuboCop configs [#638](https://github.com/jwt/ruby-jwt/pull/638) ([@anakinj](https://github.com/anakinj))
 
 **Fixes and enhancements:**
 
@@ -700,8 +700,8 @@ Take a look at the [upgrade guide](UPGRADING.md) for more details.
 **Implemented enhancements:**
 
 - Refactor obsolete code for ruby 1.8 support [\#120](https://github.com/jwt/ruby-jwt/issues/120)
-- Fix "Rubocop/Metrics/CyclomaticComplexity" issue in lib/jwt.rb [\#106](https://github.com/jwt/ruby-jwt/issues/106)
-- Fix "Rubocop/Metrics/CyclomaticComplexity" issue in lib/jwt.rb [\#105](https://github.com/jwt/ruby-jwt/issues/105)
+- Fix "RuboCop/Metrics/CyclomaticComplexity" issue in lib/jwt.rb [\#106](https://github.com/jwt/ruby-jwt/issues/106)
+- Fix "RuboCop/Metrics/CyclomaticComplexity" issue in lib/jwt.rb [\#105](https://github.com/jwt/ruby-jwt/issues/105)
 - Allow a proc to be passed for JTI verification [\#126](https://github.com/jwt/ruby-jwt/pull/126) ([yahooguntu](https://github.com/yahooguntu))
 - Relax restrictions on "jti" claim verification [\#113](https://github.com/jwt/ruby-jwt/pull/113) ([lwe](https://github.com/lwe))
 

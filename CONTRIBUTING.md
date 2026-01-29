@@ -28,7 +28,7 @@ Before you start with your implementation make sure you are able to get a succes
 
 The tests are written with rspec and [Appraisal](https://github.com/thoughtbot/appraisal) is used to ensure compatibility with 3rd party dependencies providing cryptographic features.
 
-[Rubocop](https://github.com/rubocop/rubocop) is used to enforce the Ruby style.
+[RuboCop](https://github.com/rubocop/rubocop) is used to enforce the Ruby style.
 
 To run the complete set of tests and linter run the following
 
