@@ -6,7 +6,7 @@
 
 **Features:**
 
-- Your contribution here
+- Add duplicate claim name detection per RFC 7519 Section 4 [#713](https://github.com/jwt/ruby-jwt/pull/713) ([@ydah](https://github.com/ydah))
 
 **Fixes and enhancements:**
 

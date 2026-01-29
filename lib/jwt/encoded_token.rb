@@ -11,7 +11,7 @@ module JWT
   #   encoded_token = JWT::EncodedToken.new(token.jwt)
   #   encoded_token.verify_signature!(algorithm: 'HS256', key: 'secret')
   #   encoded_token.payload # => {'pay' => 'load'}
-  class EncodedToken
+  class EncodedToken # rubocop:disable Metrics/ClassLength
     # @private
     # Allow access to the unverified payload for claim verification.
     class ClaimsContext
@@ -39,11 +39,14 @@ module JWT
     # Initializes a new EncodedToken instance.
     #
     # @param jwt [String] the encoded JWT token.
+    # @param allow_duplicate_keys [Boolean] whether to allow duplicate keys in header/payload (default: true).
     # @raise [ArgumentError] if the provided JWT is not a String.
-    def initialize(jwt)
+    # @raise [JWT::DuplicateKeyError] if allow_duplicate_keys is false and duplicate keys are found.
+    def initialize(jwt, allow_duplicate_keys: true)
       raise ArgumentError, 'Provided JWT must be a String' unless jwt.is_a?(String)
 
       @jwt = jwt
+      @allow_duplicate_keys = allow_duplicate_keys
       @signature_verified = false
       @claims_verified    = false
 
@@ -224,7 +227,7 @@ module JWT
     end
 
     def parse(segment)
-      JWT::JSON.parse(segment)
+      JWT::JSON.parse(segment, allow_duplicate_keys: @allow_duplicate_keys)
     rescue ::JSON::ParserError
       raise JWT::DecodeError, 'Invalid segment encoding'
     end
