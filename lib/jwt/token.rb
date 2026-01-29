@@ -127,5 +127,31 @@ module JWT
     #
     # @return [String] the JWT token as a string.
     alias to_s jwt
+
+    class << self
+      # Wraps another JWT token, creating a Nested JWT.
+      # Sets the `cty` (content type) header to "JWT" as required by RFC 7519 Section 5.2.
+      #
+      # @param inner_token [JWT::Token, String] the token to wrap. Can be a JWT::Token instance
+      #   or a JWT string.
+      # @param header [Hash] additional header fields for the outer token
+      # @return [JWT::Token] a new token with the inner token as its payload and cty header set
+      #
+      # @example Wrapping a token
+      #   inner = JWT::Token.new(payload: { sub: 'user' })
+      #   inner.sign!(algorithm: 'HS256', key: 'secret')
+      #   outer = JWT::Token.wrap(inner)
+      #   outer.sign!(algorithm: 'RS256', key: rsa_private)
+      #
+      # @example Wrapping a JWT string
+      #   jwt_string = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
+      #   outer = JWT::Token.wrap(jwt_string)
+      #
+      # @see https://datatracker.ietf.org/doc/html/rfc7519#section-5.2 RFC 7519 Section 5.2
+      def wrap(inner_token, header: {})
+        jwt_string = inner_token.is_a?(Token) ? inner_token.jwt : inner_token
+        new(payload: jwt_string, header: header.merge('cty' => 'JWT'))
+      end
+    end
   end
 end

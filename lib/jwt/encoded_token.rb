@@ -178,6 +178,58 @@ module JWT
 
     alias to_s jwt
 
+    # Checks if this token is a Nested JWT.
+    # A token is considered nested if it has a `cty` header with value "JWT" (case-insensitive).
+    #
+    # @return [Boolean] true if this is a Nested JWT, false otherwise
+    #
+    # @example
+    #   token = JWT::EncodedToken.new(nested_jwt_string)
+    #   token.nested? # => true
+    #
+    # @see https://datatracker.ietf.org/doc/html/rfc7519#section-5.2 RFC 7519 Section 5.2
+    def nested?
+      cty = header['cty']
+      cty&.upcase == 'JWT'
+    end
+
+    # Returns the inner token if this is a Nested JWT.
+    # The inner token is created from the payload of this token.
+    #
+    # @return [JWT::EncodedToken, nil] the inner token if nested, nil otherwise
+    #
+    # @example
+    #   outer_token = JWT::EncodedToken.new(nested_jwt_string)
+    #   inner_token = outer_token.inner_token
+    #   inner_token.header # => { 'alg' => 'HS256' }
+    def inner_token
+      return nil unless nested?
+
+      EncodedToken.new(unverified_payload)
+    end
+
+    # Unwraps all nesting levels and returns an array of tokens.
+    # The array is ordered from outermost to innermost token.
+    #
+    # @return [Array<JWT::EncodedToken>] array of all tokens from outer to inner
+    #
+    # @example
+    #   token = JWT::EncodedToken.new(deeply_nested_jwt)
+    #   all_tokens = token.unwrap_all
+    #   all_tokens.first # => outermost token
+    #   all_tokens.last  # => innermost token
+    def unwrap_all
+      tokens = [self]
+      current = self
+
+      while current.nested?
+        current = current.inner_token
+        tokens << current
+      end
+
+      tokens
+    end
+
     private
 
     def claims_options(options)
