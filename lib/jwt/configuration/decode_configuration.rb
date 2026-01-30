@@ -24,8 +24,6 @@ module JWT
       #   @return [Array<String>] the list of acceptable algorithms.
       # @!attribute [rw] required_claims
       #   @return [Array<String>] the list of required claims.
-      # @!attribute [rw] allow_duplicate_keys
-      #   @return [Boolean] whether to allow duplicate keys in JWT header and payload.
 
       attr_accessor :verify_expiration,
                     :verify_not_before,
@@ -36,8 +34,7 @@ module JWT
                     :verify_sub,
                     :leeway,
                     :algorithms,
-                    :required_claims,
-                    :allow_duplicate_keys
+                    :required_claims
 
       # Initializes a new DecodeConfiguration instance with default settings.
       def initialize
@@ -51,7 +48,6 @@ module JWT
         @leeway = 0
         @algorithms = ['HS256']
         @required_claims = []
-        @allow_duplicate_keys = true
       end
 
       # @api private
@@ -66,8 +62,7 @@ module JWT
           verify_sub: verify_sub,
           leeway: leeway,
           algorithms: algorithms,
-          required_claims: required_claims,
-          allow_duplicate_keys: allow_duplicate_keys
+          required_claims: required_claims
         }
       end
     end

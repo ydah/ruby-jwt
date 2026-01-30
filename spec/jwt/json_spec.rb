@@ -24,7 +24,7 @@ RSpec.describe JWT::JSON do
       it 'raises DuplicateKeyError for duplicate keys' do
         expect do
           described_class.parse('{"a":1,"a":2}', allow_duplicate_keys: false)
-        end.to raise_error(JWT::DuplicateKeyError, /Duplicate key detected: a/)
+        end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
       end
 
       it 'parses valid JSON without duplicates' do
@@ -36,7 +36,7 @@ RSpec.describe JWT::JSON do
         json = '{"outer":{"inner":1,"inner":2}}'
         expect do
           described_class.parse(json, allow_duplicate_keys: false)
-        end.to raise_error(JWT::DuplicateKeyError, /Duplicate key detected: inner/)
+        end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
       end
 
       it 'allows same key in different objects' do

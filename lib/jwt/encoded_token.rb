@@ -39,18 +39,32 @@ module JWT
     # Initializes a new EncodedToken instance.
     #
     # @param jwt [String] the encoded JWT token.
-    # @param allow_duplicate_keys [Boolean] whether to allow duplicate keys in header/payload (default: true).
     # @raise [ArgumentError] if the provided JWT is not a String.
-    # @raise [JWT::DuplicateKeyError] if allow_duplicate_keys is false and duplicate keys are found.
-    def initialize(jwt, allow_duplicate_keys: true)
+    def initialize(jwt)
       raise ArgumentError, 'Provided JWT must be a String' unless jwt.is_a?(String)
 
       @jwt = jwt
-      @allow_duplicate_keys = allow_duplicate_keys
+      @allow_duplicate_keys = true
       @signature_verified = false
       @claims_verified    = false
 
       @encoded_header, @encoded_payload, @encoded_signature = jwt.split('.')
+    end
+
+    # Enables strict duplicate key detection for this token.
+    # When called, the token will raise JWT::DuplicateKeyError if duplicate keys
+    # are found in the header or payload during parsing.
+    #
+    # @example
+    #   token = JWT::EncodedToken.new(jwt_string)
+    #   token.raise_on_duplicate_keys!
+    #   token.header # May raise JWT::DuplicateKeyError
+    #
+    # @return [self]
+    # @raise [JWT::DuplicateKeyError] if duplicate keys are found during subsequent parsing.
+    def raise_on_duplicate_keys!
+      @allow_duplicate_keys = false
+      self
     end
 
     # Returns the decoded signature of the JWT token.

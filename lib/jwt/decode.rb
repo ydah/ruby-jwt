@@ -22,7 +22,7 @@ module JWT
     def initialize(jwt, key, verify, options, &keyfinder)
       raise JWT::DecodeError, 'Nil JSON web token' unless jwt
 
-      @token = EncodedToken.new(jwt, allow_duplicate_keys: allow_duplicate_keys?(options))
+      @token = EncodedToken.new(jwt)
       @key = key
       @options = options
       @verify = verify
@@ -118,12 +118,6 @@ module JWT
 
     def alg_in_header
       token.header['alg']
-    end
-
-    def allow_duplicate_keys?(options)
-      return options[:allow_duplicate_keys] if options.key?(:allow_duplicate_keys)
-
-      JWT.configuration.decode.allow_duplicate_keys
     end
   end
 end

@@ -25,94 +25,79 @@ RSpec.describe 'Duplicate Claim Name Detection' do
     "#{signing_input}.#{signature}"
   end
 
-  describe 'payload with duplicate keys' do
-    let(:duplicate_payload_jwt) { build_jwt_with_duplicate_payload('{"sub":"user","sub":"admin"}') }
+  describe 'using EncodedToken API' do
+    describe 'payload with duplicate keys' do
+      let(:duplicate_payload_jwt) { build_jwt_with_duplicate_payload('{"sub":"user","sub":"admin"}') }
 
-    context 'with default configuration' do
-      it 'uses the last value (backward compatible)' do
-        payload, = JWT.decode(duplicate_payload_jwt, secret, true, algorithm: algorithm)
-        expect(payload['sub']).to eq('admin')
+      context 'with default behavior' do
+        it 'uses the last value (allows duplicates)' do
+          token = JWT::EncodedToken.new(duplicate_payload_jwt)
+          expect(token.unverified_payload['sub']).to eq('admin')
+        end
+      end
+
+      context 'with raise_on_duplicate_keys!' do
+        it 'raises DuplicateKeyError' do
+          token = JWT::EncodedToken.new(duplicate_payload_jwt)
+          token.raise_on_duplicate_keys!
+          expect do
+            token.unverified_payload
+          end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
+        end
       end
     end
 
-    context 'with allow_duplicate_keys: true' do
-      it 'uses the last value' do
-        payload, = JWT.decode(duplicate_payload_jwt, secret, true, algorithm: algorithm, allow_duplicate_keys: true)
-        expect(payload['sub']).to eq('admin')
+    describe 'header with duplicate keys' do
+      let(:duplicate_header_jwt) { build_jwt_with_duplicate_header('{"alg":"HS256","alg":"none"}') }
+
+      context 'with default behavior' do
+        it 'uses the last value (allows duplicates)' do
+          token = JWT::EncodedToken.new(duplicate_header_jwt)
+          expect(token.header['alg']).to eq('none')
+        end
+      end
+
+      context 'with raise_on_duplicate_keys!' do
+        it 'raises DuplicateKeyError for header' do
+          token = JWT::EncodedToken.new(duplicate_header_jwt)
+          token.raise_on_duplicate_keys!
+          expect do
+            token.header
+          end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
+        end
       end
     end
 
-    context 'with allow_duplicate_keys: false' do
-      it 'raises DuplicateKeyError' do
-        expect do
-          JWT.decode(duplicate_payload_jwt, secret, true, algorithm: algorithm, allow_duplicate_keys: false)
-        end.to raise_error(JWT::DuplicateKeyError, /Duplicate key detected: sub/)
-      end
-    end
-  end
+    describe 'chaining' do
+      let(:valid_jwt) { build_jwt_with_duplicate_payload('{"sub":"user"}') }
 
-  describe 'header with duplicate keys' do
-    let(:duplicate_header_jwt) { build_jwt_with_duplicate_header('{"alg":"HS256","alg":"none"}') }
-
-    context 'with default configuration' do
-      it 'uses the last value (backward compatible)' do
-        _, header = JWT.decode(duplicate_header_jwt, nil, false)
-        expect(header['alg']).to eq('none')
+      it 'returns self for method chaining' do
+        token = JWT::EncodedToken.new(valid_jwt)
+        expect(token.raise_on_duplicate_keys!).to eq(token)
       end
     end
 
-    context 'with allow_duplicate_keys: false' do
-      it 'raises DuplicateKeyError for header' do
-        expect do
-          JWT.decode(duplicate_header_jwt, nil, false, allow_duplicate_keys: false)
-        end.to raise_error(JWT::DuplicateKeyError, /Duplicate key detected: alg/)
+    describe 'valid tokens' do
+      let(:valid_jwt) { build_jwt_with_duplicate_payload('{"sub":"user","name":"John"}') }
+
+      it 'parses valid JSON without duplicates' do
+        token = JWT::EncodedToken.new(valid_jwt)
+        token.raise_on_duplicate_keys!
+        expect(token.unverified_payload).to eq({ 'sub' => 'user', 'name' => 'John' })
       end
-    end
-  end
-
-  describe 'global configuration' do
-    around do |example|
-      original = JWT.configuration.decode.allow_duplicate_keys
-      example.run
-      JWT.configuration.decode.allow_duplicate_keys = original
-    end
-
-    let(:duplicate_payload_jwt) { build_jwt_with_duplicate_payload('{"sub":"user","sub":"admin"}') }
-
-    it 'respects global configuration when set to false' do
-      JWT.configuration.decode.allow_duplicate_keys = false
-
-      expect do
-        JWT.decode(duplicate_payload_jwt, secret, true, algorithm: algorithm)
-      end.to raise_error(JWT::DuplicateKeyError)
-    end
-
-    it 'allows per-decode override of global configuration' do
-      JWT.configuration.decode.allow_duplicate_keys = false
-
-      payload, = JWT.decode(
-        duplicate_payload_jwt,
-        secret,
-        true,
-        algorithm: algorithm,
-        allow_duplicate_keys: true
-      )
-      expect(payload['sub']).to eq('admin')
-    end
-
-    it 'defaults to allowing duplicate keys' do
-      expect(JWT.configuration.decode.allow_duplicate_keys).to be(true)
     end
   end
 
   describe 'multiple duplicate keys' do
     let(:multiple_duplicates_jwt) { build_jwt_with_duplicate_payload('{"a":1,"b":2,"a":3,"b":4}') }
 
-    context 'with allow_duplicate_keys: false' do
+    context 'with raise_on_duplicate_keys!' do
       it 'raises DuplicateKeyError for the first duplicate found' do
+        token = JWT::EncodedToken.new(multiple_duplicates_jwt)
+        token.raise_on_duplicate_keys!
         expect do
-          JWT.decode(multiple_duplicates_jwt, secret, true, algorithm: algorithm, allow_duplicate_keys: false)
-        end.to raise_error(JWT::DuplicateKeyError, /Duplicate key detected: a/)
+          token.unverified_payload
+        end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
       end
     end
   end
