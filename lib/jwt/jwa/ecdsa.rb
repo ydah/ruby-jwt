@@ -98,7 +98,7 @@ module JWT
       def raw_to_asn1(signature, private_key)
         byte_size = (private_key.group.degree + 7) / 8
         sig_bytes = signature[0..(byte_size - 1)]
-        sig_char = signature[byte_size..] || ''
+        sig_char = signature[byte_size..-1] || ''
         OpenSSL::ASN1::Sequence.new([sig_bytes, sig_char].map { |int| OpenSSL::ASN1::Integer.new(OpenSSL::BN.new(int, 2)) }).to_der
       end
 

@@ -32,7 +32,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = %w[lib]
 
   spec.add_dependency 'base64'
-  spec.add_dependency 'json'
 
   spec.add_development_dependency 'appraisal'
   spec.add_development_dependency 'bundler'
