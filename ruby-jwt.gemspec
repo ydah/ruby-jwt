@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.description = 'A pure ruby implementation of the RFC 7519 OAuth JSON Web Token (JWT) standard.'
   spec.homepage = 'https://github.com/jwt/ruby-jwt'
   spec.license = 'MIT'
-  spec.required_ruby_version = '>= 2.7'
+  spec.required_ruby_version = '>= 2.5'
   spec.metadata = {
     'bug_tracker_uri' => 'https://github.com/jwt/ruby-jwt/issues',
     'changelog_uri' => "https://github.com/jwt/ruby-jwt/blob/v#{JWT.gem_version}/CHANGELOG.md",
@@ -32,7 +32,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = %w[lib]
 
   spec.add_dependency 'base64'
-  spec.add_dependency 'json', '>= 2.13.0'
+  spec.add_dependency 'json'
 
   spec.add_development_dependency 'appraisal'
   spec.add_development_dependency 'bundler'
