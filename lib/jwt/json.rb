@@ -21,8 +21,6 @@ module JWT
         raise
       end
 
-      private
-
       def supports_duplicate_key_detection?
         return @supports_duplicate_key_detection if defined?(@supports_duplicate_key_detection)
 

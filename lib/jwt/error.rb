@@ -55,4 +55,7 @@ module JWT
   # The DuplicateKeyError class is raised when a JWT contains duplicate keys in the header or payload.
   # @see https://datatracker.ietf.org/doc/html/rfc7519#section-4 RFC 7519 Section 4
   class DuplicateKeyError < DecodeError; end
+
+  # The UnsupportedError class is raised when a feature is not supported by the current environment.
+  class UnsupportedError < StandardError; end
 end

@@ -62,7 +62,10 @@ module JWT
     #
     # @return [self]
     # @raise [JWT::DuplicateKeyError] if duplicate keys are found during subsequent parsing.
+    # @raise [JWT::UnsupportedError] if the JSON gem version does not support duplicate key detection.
     def raise_on_duplicate_keys!
+      raise JWT::UnsupportedError, 'Duplicate key detection requires JSON gem >= 2.13.0' unless JSON.supports_duplicate_key_detection?
+
       @allow_duplicate_keys = false
       self
     end
