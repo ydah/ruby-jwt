@@ -11,13 +11,10 @@ module JWT
       end
 
       def parse(data, allow_duplicate_keys: true)
-        return ::JSON.parse(data) if allow_duplicate_keys
+        options = {}
+        options[:allow_duplicate_key] = false if !allow_duplicate_keys && supports_duplicate_key_detection?
 
-        if supports_duplicate_key_detection?
-          ::JSON.parse(data, allow_duplicate_key: false)
-        else
-          ::JSON.parse(data)
-        end
+        ::JSON.parse(data, options)
       rescue ::JSON::ParserError => e
         raise JWT::DuplicateKeyError, e.message if e.message.include?('duplicate key')
 
