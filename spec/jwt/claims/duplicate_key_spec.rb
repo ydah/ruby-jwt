@@ -37,12 +37,19 @@ RSpec.describe 'Duplicate Claim Name Detection' do
       end
 
       context 'with raise_on_duplicate_keys!' do
-        it 'raises DuplicateKeyError' do
+        it 'raises DuplicateKeyError', if: JWT::JSON.supports_duplicate_key_detection? do
           token = JWT::EncodedToken.new(duplicate_payload_jwt)
           token.raise_on_duplicate_keys!
           expect do
             token.unverified_payload
           end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
+        end
+
+        it 'raises UnsupportedError', unless: JWT::JSON.supports_duplicate_key_detection? do
+          token = JWT::EncodedToken.new(duplicate_payload_jwt)
+          expect do
+            token.raise_on_duplicate_keys!
+          end.to raise_error(JWT::UnsupportedError, /JSON gem >= 2\.13\.0/)
         end
       end
     end
@@ -58,17 +65,24 @@ RSpec.describe 'Duplicate Claim Name Detection' do
       end
 
       context 'with raise_on_duplicate_keys!' do
-        it 'raises DuplicateKeyError for header' do
+        it 'raises DuplicateKeyError for header', if: JWT::JSON.supports_duplicate_key_detection? do
           token = JWT::EncodedToken.new(duplicate_header_jwt)
           token.raise_on_duplicate_keys!
           expect do
             token.header
           end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
         end
+
+        it 'raises UnsupportedError', unless: JWT::JSON.supports_duplicate_key_detection? do
+          token = JWT::EncodedToken.new(duplicate_header_jwt)
+          expect do
+            token.raise_on_duplicate_keys!
+          end.to raise_error(JWT::UnsupportedError, /JSON gem >= 2\.13\.0/)
+        end
       end
     end
 
-    describe 'chaining' do
+    describe 'chaining', if: JWT::JSON.supports_duplicate_key_detection? do
       let(:valid_jwt) { build_jwt_with_duplicate_payload('{"sub":"user"}') }
 
       it 'returns self for method chaining' do
@@ -77,7 +91,7 @@ RSpec.describe 'Duplicate Claim Name Detection' do
       end
     end
 
-    describe 'valid tokens' do
+    describe 'valid tokens', if: JWT::JSON.supports_duplicate_key_detection? do
       let(:valid_jwt) { build_jwt_with_duplicate_payload('{"sub":"user","name":"John"}') }
 
       it 'parses valid JSON without duplicates' do
@@ -92,12 +106,19 @@ RSpec.describe 'Duplicate Claim Name Detection' do
     let(:multiple_duplicates_jwt) { build_jwt_with_duplicate_payload('{"a":1,"b":2,"a":3,"b":4}') }
 
     context 'with raise_on_duplicate_keys!' do
-      it 'raises DuplicateKeyError for the first duplicate found' do
+      it 'raises DuplicateKeyError for the first duplicate found', if: JWT::JSON.supports_duplicate_key_detection? do
         token = JWT::EncodedToken.new(multiple_duplicates_jwt)
         token.raise_on_duplicate_keys!
         expect do
           token.unverified_payload
         end.to raise_error(JWT::DuplicateKeyError, /duplicate key/)
+      end
+
+      it 'raises UnsupportedError', unless: JWT::JSON.supports_duplicate_key_detection? do
+        token = JWT::EncodedToken.new(multiple_duplicates_jwt)
+        expect do
+          token.raise_on_duplicate_keys!
+        end.to raise_error(JWT::UnsupportedError, /JSON gem >= 2\.13\.0/)
       end
     end
   end
