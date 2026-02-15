@@ -6,6 +6,7 @@
 
 **Features:**
 
+- Add `enforce_hmac_key_length` configuration option [#716](https://github.com/jwt/ruby-jwt/pull/716) - ([@304](https://github.com/304))
 - Your contribution here
 
 **Fixes and enhancements:**
