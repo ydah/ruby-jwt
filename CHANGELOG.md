@@ -12,6 +12,7 @@
 
 - Fix compatibility with the openssl 4.0 gem [#706](https://github.com/jwt/ruby-jwt/pull/706)
 - Test against Ruby 4.0 on CI [#707](https://github.com/jwt/ruby-jwt/pull/707)
+- Fix type error when header is not a JSON object [#715](https://github.com/jwt/ruby-jwt/pull/715) - ([@304](https://github.com/304))
 - Your contribution here
 
 ## [v3.1.2](https://github.com/jwt/ruby-jwt/tree/v3.1.2) (2025-06-28)

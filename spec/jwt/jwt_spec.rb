@@ -8,6 +8,7 @@ RSpec.describe JWT do
       :empty_token => 'e30K.e30K.e30K',
       :empty_token_2_segment => 'e30K.e30K.',
       :invalid_header_token => 'W10.e30K.e30K',
+      :invalid_2_segment_header_token => 'WyJIUzI1NiJd.e30K',
       :secret => 'My$ecretK3y',
       :rsa_private => test_pkey('rsa-2048-private.pem'),
       :rsa_public => test_pkey('rsa-2048-public.pem'),
@@ -469,6 +470,14 @@ RSpec.describe JWT do
             expect do
               JWT.decode data[:invalid_header_token]
             end.to raise_error JWT::DecodeError
+          end
+        end
+
+        context 'invalid 2-segment header format' do
+          it 'should raise JWT::DecodeError' do
+            expect do
+              JWT.decode data[:invalid_2_segment_header_token]
+            end.to raise_error JWT::DecodeError, 'Not enough or too many segments'
           end
         end
 

@@ -58,7 +58,7 @@ module JWT
 
     def verify_algo
       raise JWT::IncorrectAlgorithm, 'An algorithm must be specified' if allowed_algorithms.empty?
-      raise JWT::DecodeError, 'Token header not a JSON object' unless token.header.is_a?(Hash)
+      raise JWT::DecodeError, 'Token header not a JSON object' unless valid_token_header?
       raise JWT::IncorrectAlgorithm, 'Token is missing alg header' unless alg_in_header
       raise JWT::IncorrectAlgorithm, 'Expected a different algorithm' if allowed_and_valid_algorithms.empty?
     end
@@ -113,7 +113,13 @@ module JWT
     end
 
     def none_algorithm?
+      return false unless valid_token_header?
+
       alg_in_header == 'none'
+    end
+
+    def valid_token_header?
+      token.header.is_a?(Hash)
     end
 
     def alg_in_header
