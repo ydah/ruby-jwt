@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'encoded_token/claims_context'
+
 module JWT
   # Represents an encoded JWT token
   #
@@ -12,22 +14,6 @@ module JWT
   #   encoded_token.verify_signature!(algorithm: 'HS256', key: 'secret')
   #   encoded_token.payload # => {'pay' => 'load'}
   class EncodedToken
-    # @private
-    # Allow access to the unverified payload for claim verification.
-    class ClaimsContext
-      extend Forwardable
-
-      def_delegators :@token, :header, :unverified_payload
-
-      def initialize(token)
-        @token = token
-      end
-
-      def payload
-        unverified_payload
-      end
-    end
-
     DEFAULT_CLAIMS = [:exp].freeze
 
     private_constant(:DEFAULT_CLAIMS)

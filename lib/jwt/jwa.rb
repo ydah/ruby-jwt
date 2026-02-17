@@ -9,40 +9,12 @@ require_relative 'jwa/none'
 require_relative 'jwa/ps'
 require_relative 'jwa/rsa'
 require_relative 'jwa/unsupported'
+require_relative 'jwa/verifier_context'
+require_relative 'jwa/signer_context'
 
 module JWT
   # The JWA module contains all supported algorithms.
   module JWA
-    # @api private
-    class VerifierContext
-      attr_reader :jwa
-
-      def initialize(jwa:, keys:)
-        @jwa = jwa
-        @keys = Array(keys)
-      end
-
-      def verify(*args, **kwargs)
-        @keys.any? do |key|
-          @jwa.verify(*args, **kwargs, verification_key: key)
-        end
-      end
-    end
-
-    # @api private
-    class SignerContext
-      attr_reader :jwa
-
-      def initialize(jwa:, key:)
-        @jwa = jwa
-        @key = key
-      end
-
-      def sign(*args, **kwargs)
-        @jwa.sign(*args, **kwargs, signing_key: @key)
-      end
-    end
-
     class << self
       # @api private
       def resolve(algorithm)
