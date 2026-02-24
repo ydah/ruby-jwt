@@ -339,19 +339,16 @@ inner_jwt = JWT.encode(inner_payload, inner_key, 'HS256')
 
 # Wrap it in an outer JWT with a different key/algorithm
 outer_key = OpenSSL::PKey::RSA.generate(2048)
-nested_jwt = JWT::NestedToken.sign(
-  inner_jwt,
-  algorithm: 'RS256',
-  key: outer_key
-)
+nested = JWT::NestedToken.new(inner_jwt)
+nested.sign!(algorithm: 'RS256', key: outer_key)
+nested_jwt = nested.jwt
 ```
 
 ### Decoding a Nested JWT
 
 ```ruby
 # Decode and verify all nesting levels
-tokens = JWT::NestedToken.decode(
-  nested_jwt,
+tokens = JWT::NestedToken.new(nested_jwt).verify!(
   keys: [
     { algorithm: 'RS256', key: outer_key.public_key },
     { algorithm: 'HS256', key: inner_key }
@@ -360,20 +357,6 @@ tokens = JWT::NestedToken.decode(
 
 inner_payload = tokens.last.payload
 # => { 'user_id' => 123, 'role' => 'admin' }
-```
-
-### Using JWT::Token.wrap
-
-You can also use `JWT::Token.wrap` to create nested tokens:
-
-```ruby
-inner = JWT::Token.new(payload: { sub: 'user' })
-inner.sign!(algorithm: 'HS256', key: 'inner_secret')
-
-outer = JWT::Token.wrap(inner)
-outer.sign!(algorithm: 'RS256', key: rsa_private_key)
-
-nested_jwt = outer.jwt
 ```
 
 ### Checking for Nested JWTs

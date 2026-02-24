@@ -1,111 +1,119 @@
 # frozen_string_literal: true
 
 module JWT
-  # Provides functionality for creating and decoding Nested JWTs
-  # as defined in RFC 7519 Section 5.2, Section 7.1 Step 5, and Appendix A.2.
+  # Represents a Nested JWT as defined in RFC 7519 Section 5.2, Section 7.1 Step 5, and Appendix A.2.
   #
-  # A Nested JWT is a JWT that is used as the payload of another JWT,
-  # allowing for multiple layers of signing or encryption.
+  # A Nested JWT wraps an existing JWT string as the payload of another signed JWT.
   #
   # @example Creating a Nested JWT
   #   inner_jwt = JWT.encode({ user_id: 123 }, 'inner_secret', 'HS256')
-  #   nested_jwt = JWT::NestedToken.sign(
-  #     inner_jwt,
-  #     algorithm: 'RS256',
-  #     key: rsa_private_key
-  #   )
+  #   nested = JWT::NestedToken.new(inner_jwt)
+  #   nested.sign!(algorithm: 'RS256', key: rsa_private_key)
+  #   nested.jwt
   #
-  # @example Decoding a Nested JWT
-  #   tokens = JWT::NestedToken.decode(
-  #     nested_jwt,
+  # @example Verifying a Nested JWT
+  #   nested = JWT::NestedToken.new(nested_jwt)
+  #   tokens = nested.verify!(
   #     keys: [
   #       { algorithm: 'RS256', key: rsa_public_key },
   #       { algorithm: 'HS256', key: 'inner_secret' }
   #     ]
   #   )
-  #   inner_payload = tokens.last.payload
+  #   tokens.last.payload
   #
   # @see https://datatracker.ietf.org/doc/html/rfc7519#section-5.2 RFC 7519 Section 5.2
   class NestedToken
-    # The content type header value for nested JWTs as per RFC 7519
     CTY_JWT = 'JWT'
+    MAX_DEPTH = 10
 
-    class << self
-      # Wraps an inner JWT with an outer JWS, creating a Nested JWT.
-      # Automatically sets the `cty` (content type) header to "JWT" as required by RFC 7519.
-      #
-      # @param inner_jwt [String] the inner JWT string to wrap
-      # @param algorithm [String] the signing algorithm for the outer JWS (e.g., 'RS256', 'HS256')
-      # @param key [Object] the signing key for the outer JWS
-      # @param header [Hash] additional header fields to include (cty is automatically set)
-      # @return [String] the Nested JWT string
-      #
-      # @raise [JWT::EncodeError] if signing fails
-      #
-      # @example Basic usage with HS256
-      #   inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-      #   nested = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer_secret')
-      #
-      # @example With RSA and custom headers
-      #   nested = JWT::NestedToken.sign(
-      #     inner_jwt,
-      #     algorithm: 'RS256',
-      #     key: rsa_private_key,
-      #     header: { kid: 'my-key-id' }
-      #   )
-      def sign(inner_jwt, algorithm:, key:, header: {})
-        outer_header = header.merge('cty' => CTY_JWT)
-        token = Token.new(payload: inner_jwt, header: outer_header)
-        token.sign!(algorithm: algorithm, key: key)
-        token.jwt
+    # @return [String] the current JWT string represented by this instance.
+    attr_reader :jwt
+
+    # @return [Array<JWT::EncodedToken>, nil] verified tokens ordered from outermost to innermost.
+    attr_reader :tokens
+
+    # @param jwt [String] the JWT string to wrap or verify.
+    # @raise [ArgumentError] if the provided JWT is not a String.
+    def initialize(jwt)
+      raise ArgumentError, 'Provided JWT must be a String' unless jwt.is_a?(String)
+
+      @jwt = jwt
+    end
+
+    # Wraps the current JWT string in an outer JWS and replaces {#jwt} with the nested JWT.
+    # The payload is base64url-encoded directly from the JWT string (without JSON string encoding).
+    #
+    # @param algorithm [String, Object] the algorithm to use for signing.
+    # @param key [String, JWT::JWK::KeyBase] the key to use for signing.
+    # @param header [Hash] additional header fields to include in the outer token.
+    # @return [nil]
+    def sign!(algorithm:, key:, header: {})
+      signer = JWA.create_signer(algorithm: algorithm, key: key)
+      outer_header = (header || {})
+                     .transform_keys(&:to_s)
+                     .merge('cty' => CTY_JWT)
+
+      outer_header.merge!(signer.jwa.header) { |_header_key, old, _new| old }
+
+      encoded_header = ::JWT::Base64.url_encode(JWT::JSON.generate(outer_header))
+      encoded_payload = ::JWT::Base64.url_encode(jwt)
+      signing_input = [encoded_header, encoded_payload].join('.')
+      signature = signer.sign(data: signing_input)
+
+      @jwt = [encoded_header, encoded_payload, ::JWT::Base64.url_encode(signature)].join('.')
+      @tokens = nil
+      nil
+    end
+
+    # Verifies signatures of all nested levels and the claims of the innermost token.
+    #
+    # @param keys [Array<Hash>] key configuration per nesting level (outermost to innermost).
+    # @param claims [Array<Symbol>, Hash, nil] claim verification options for the innermost token.
+    # @return [Array<JWT::EncodedToken>] verified tokens from outermost to innermost.
+    def verify!(keys:, claims: nil)
+      verify_signatures!(keys: keys)
+      verify_claims!(claims: claims)
+      tokens
+    end
+
+    # Verifies signatures of all nested levels.
+    #
+    # @param keys [Array<Hash>] key configuration per nesting level (outermost to innermost).
+    # @return [Array<JWT::EncodedToken>] verified tokens from outermost to innermost.
+    def verify_signatures!(keys:)
+      @tokens = EncodedToken.new(jwt).unwrap_all(max_depth: MAX_DEPTH)
+      validate_key_count!(keys)
+
+      tokens.each_with_index do |token, index|
+        key_config = keys[index]
+        token.verify_signature!(
+          algorithm: key_config[:algorithm],
+          key: key_config[:key],
+          key_finder: key_config[:key_finder]
+        )
       end
 
-      # Decodes and verifies a Nested JWT, unwrapping all nesting levels.
-      # Each level's signature is verified using the corresponding key configuration.
-      #
-      # @param token [String] the Nested JWT string to decode
-      # @param keys [Array<Hash>] an array of key configurations for each nesting level,
-      #   ordered from outermost to innermost. Each hash should contain:
-      #   - `:algorithm` [String] the expected algorithm
-      #   - `:key` [Object] the verification key
-      # @return [Array<JWT::EncodedToken>] array of tokens from outermost to innermost
-      #
-      # @raise [JWT::DecodeError] if decoding fails at any level
-      # @raise [JWT::VerificationError] if signature verification fails at any level
-      #
-      # @example Decoding a two-level nested JWT
-      #   tokens = JWT::NestedToken.decode(
-      #     nested_jwt,
-      #     keys: [
-      #       { algorithm: 'RS256', key: rsa_public_key },
-      #       { algorithm: 'HS256', key: 'inner_secret' }
-      #     ]
-      #   )
-      #   inner_token = tokens.last
-      #   inner_token.payload # => { 'user_id' => 123 }
-      def decode(token, keys:)
-        tokens = []
-        current_token = token
+      tokens
+    end
 
-        keys.each_with_index do |key_config, index|
-          encoded_token = EncodedToken.new(current_token)
-          encoded_token.verify_signature!(
-            algorithm: key_config[:algorithm],
-            key: key_config[:key]
-          )
+    # Verifies claims of the innermost token after signatures have been verified.
+    #
+    # @param claims [Array<Symbol>, Hash, nil] claim verification options for the innermost token.
+    # @return [Array<JWT::EncodedToken>] verified tokens from outermost to innermost.
+    def verify_claims!(claims: nil)
+      raise JWT::DecodeError, 'Verify nested token signatures before verifying claims' unless tokens
 
-          tokens << encoded_token
+      innermost_token = tokens.last
+      claims.is_a?(Array) ? innermost_token.verify_claims!(*claims) : innermost_token.verify_claims!(claims)
+      tokens
+    end
 
-          if encoded_token.nested?
-            current_token = encoded_token.unverified_payload
-          elsif index < keys.length - 1
-            raise JWT::DecodeError, 'Token is not nested but more keys were provided'
-          end
-        end
+    private
 
-        tokens.each(&:verify_claims!)
-        tokens
-      end
+    def validate_key_count!(keys)
+      return if keys.length == tokens.length
+
+      raise JWT::DecodeError, "Expected #{tokens.length} key configurations, got #{keys.length}"
     end
   end
 end

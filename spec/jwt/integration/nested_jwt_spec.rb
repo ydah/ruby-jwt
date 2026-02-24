@@ -1,11 +1,21 @@
 # frozen_string_literal: true
 
 RSpec.describe 'Nested JWT Integration' do
+  def create_nested_jwt(inner_jwt, algorithm:, key:, header: nil)
+    JWT::NestedToken.new(inner_jwt).tap do |nested|
+      if header
+        nested.sign!(algorithm: algorithm, key: key, header: header)
+      else
+        nested.sign!(algorithm: algorithm, key: key)
+      end
+    end.jwt
+  end
+
   describe 'RFC 7519 Compliance' do
     describe 'Section 5.2 "cty" Header Parameter' do
       it 'MUST be present for Nested JWTs' do
         inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-        nested_jwt = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer')
+        nested_jwt = create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer')
 
         token = JWT::EncodedToken.new(nested_jwt)
         expect(token.header).to have_key('cty')
@@ -13,7 +23,7 @@ RSpec.describe 'Nested JWT Integration' do
 
       it 'value MUST be "JWT"' do
         inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-        nested_jwt = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer')
+        nested_jwt = create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer')
 
         token = JWT::EncodedToken.new(nested_jwt)
         expect(token.header['cty']).to eq('JWT')
@@ -23,7 +33,7 @@ RSpec.describe 'Nested JWT Integration' do
     describe 'Section 7.2 Validating a JWT - Step 8' do
       it 'handles cty="JWT" by identifying as nested' do
         inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-        nested_jwt = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer')
+        nested_jwt = create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer')
 
         token = JWT::EncodedToken.new(nested_jwt)
         expect(token.nested?).to be(true)
@@ -48,28 +58,25 @@ RSpec.describe 'Nested JWT Integration' do
     end
   end
 
-  describe 'JWT::Token.wrap' do
+  describe 'JWT::NestedToken instance API' do
     it 'creates a nested token with cty header' do
-      inner = JWT::Token.new(payload: { sub: 'user' })
-      inner.sign!(algorithm: 'HS256', key: 'secret')
+      inner = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
 
-      outer = JWT::Token.wrap(inner)
+      nested = JWT::NestedToken.new(inner)
+      nested.sign!(algorithm: 'HS256', key: 'outer_secret')
+
+      outer = JWT::EncodedToken.new(nested.jwt)
       expect(outer.header['cty']).to eq('JWT')
-      expect(outer.payload).to eq(inner.jwt)
-    end
-
-    it 'wraps a JWT string' do
-      jwt_string = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-
-      outer = JWT::Token.wrap(jwt_string)
-      expect(outer.header['cty']).to eq('JWT')
-      expect(outer.payload).to eq(jwt_string)
+      expect(outer.inner_token.to_s).to eq(inner)
     end
 
     it 'allows additional headers' do
-      jwt_string = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
+      inner = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
 
-      outer = JWT::Token.wrap(jwt_string, header: { 'kid' => 'key-1' })
+      nested = JWT::NestedToken.new(inner)
+      nested.sign!(algorithm: 'HS256', key: 'outer_secret', header: { 'kid' => 'key-1' })
+
+      outer = JWT::EncodedToken.new(nested.jwt)
       expect(outer.header['cty']).to eq('JWT')
       expect(outer.header['kid']).to eq('key-1')
     end
@@ -78,7 +85,7 @@ RSpec.describe 'Nested JWT Integration' do
   describe 'JWT::EncodedToken nested methods' do
     let(:inner_payload) { { 'user_id' => 123 } }
     let(:inner_jwt) { JWT.encode(inner_payload, 'inner_secret', 'HS256') }
-    let(:nested_jwt) { JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer_secret') }
+    let(:nested_jwt) { create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer_secret') }
 
     describe '#nested?' do
       it 'returns true for nested JWTs' do
@@ -111,7 +118,7 @@ RSpec.describe 'Nested JWT Integration' do
     describe '#unwrap_all' do
       it 'returns all tokens for a two-level nested JWT' do
         outer = JWT::EncodedToken.new(nested_jwt)
-        tokens = outer.unwrap_all
+        tokens = outer.unwrap_all(max_depth: 10)
 
         expect(tokens.length).to eq(2)
         expect(tokens.first).to eq(outer)
@@ -120,19 +127,28 @@ RSpec.describe 'Nested JWT Integration' do
 
       it 'returns all tokens for a deeply nested JWT' do
         level1 = JWT.encode(inner_payload, 's1', 'HS256')
-        level2 = JWT::NestedToken.sign(level1, algorithm: 'HS256', key: 's2')
-        level3 = JWT::NestedToken.sign(level2, algorithm: 'HS256', key: 's3')
+        level2 = create_nested_jwt(level1, algorithm: 'HS256', key: 's2')
+        level3 = create_nested_jwt(level2, algorithm: 'HS256', key: 's3')
 
         outer = JWT::EncodedToken.new(level3)
-        tokens = outer.unwrap_all
+        tokens = outer.unwrap_all(max_depth: 10)
 
         expect(tokens.length).to eq(3)
         expect(tokens.last.unverified_payload).to eq(inner_payload)
       end
 
+      it 'raises DecodeError when nesting exceeds max depth' do
+        level1 = JWT.encode(inner_payload, 's1', 'HS256')
+        level2 = create_nested_jwt(level1, algorithm: 'HS256', key: 's2')
+        level3 = create_nested_jwt(level2, algorithm: 'HS256', key: 's3')
+
+        outer = JWT::EncodedToken.new(level3)
+        expect { outer.unwrap_all(max_depth: 2) }.to raise_error(JWT::DecodeError, 'Nested JWT exceeds maximum depth of 2')
+      end
+
       it 'returns single-element array for non-nested JWT' do
         token = JWT::EncodedToken.new(inner_jwt)
-        tokens = token.unwrap_all
+        tokens = token.unwrap_all(max_depth: 10)
 
         expect(tokens.length).to eq(1)
         expect(tokens.first).to eq(token)
@@ -150,13 +166,12 @@ RSpec.describe 'Nested JWT Integration' do
       expect { malformed.header }.to raise_error(JWT::DecodeError)
     end
 
-    it 'raises VerificationError for invalid inner signature during decode' do
+    it 'raises VerificationError for invalid inner signature during verify!' do
       inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-      nested_jwt = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer')
+      nested_jwt = create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer')
 
       expect do
-        JWT::NestedToken.decode(
-          nested_jwt,
+        JWT::NestedToken.new(nested_jwt).verify!(
           keys: [
             { algorithm: 'HS256', key: 'outer' },
             { algorithm: 'HS256', key: 'wrong_secret' }
@@ -165,13 +180,12 @@ RSpec.describe 'Nested JWT Integration' do
       end.to raise_error(JWT::VerificationError)
     end
 
-    it 'raises VerificationError for invalid outer signature during decode' do
+    it 'raises VerificationError for invalid outer signature during verify!' do
       inner_jwt = JWT.encode({ sub: 'user' }, 'secret', 'HS256')
-      nested_jwt = JWT::NestedToken.sign(inner_jwt, algorithm: 'HS256', key: 'outer')
+      nested_jwt = create_nested_jwt(inner_jwt, algorithm: 'HS256', key: 'outer')
 
       expect do
-        JWT::NestedToken.decode(
-          nested_jwt,
+        JWT::NestedToken.new(nested_jwt).verify!(
           keys: [
             { algorithm: 'HS256', key: 'wrong_outer' },
             { algorithm: 'HS256', key: 'secret' }
@@ -188,14 +202,13 @@ RSpec.describe 'Nested JWT Integration' do
       inner_jwt = JWT.encode(inner_payload, inner_key, 'HS256')
 
       outer_key = test_pkey('rsa-2048-private.pem')
-      nested_jwt = JWT::NestedToken.sign(
-        inner_jwt,
+      nested = JWT::NestedToken.new(inner_jwt)
+      nested.sign!(
         algorithm: 'RS256',
         key: outer_key
       )
 
-      tokens = JWT::NestedToken.decode(
-        nested_jwt,
+      tokens = JWT::NestedToken.new(nested.jwt).verify!(
         keys: [
           { algorithm: 'RS256', key: outer_key.public_key },
           { algorithm: 'HS256', key: inner_key }
